@@ -1,6 +1,6 @@
 {
-  "name": "Daily Log",
-  "short_name": "Daily Log",
+  "name": "Target",
+  "short_name": "Target",
   "description": "Track daily kilometers and ride payments.",
   "start_url": ".",
   "scope": ".",

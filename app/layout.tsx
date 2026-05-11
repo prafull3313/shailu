@@ -16,13 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Daily Log",
+  title: "Target",
   description: "Track daily kilometers and ride payments.",
   manifest: `${appBasePath}/manifest.webmanifest`,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Daily Log",
+    title: "Target",
   },
   icons: {
     icon: [

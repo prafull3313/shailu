@@ -113,7 +113,7 @@ export default function Home() {
     return (
       <div className="min-h-screen bg-sky-50 px-4 py-8 text-slate-900">
         <div className="mx-auto max-w-5xl rounded-lg border border-sky-100 bg-white p-6 shadow-sm">
-          <p className="text-sky-700">Loading daily log...</p>
+          <p className="text-sky-700">Loading Target...</p>
         </div>
       </div>
     );
@@ -126,7 +126,7 @@ export default function Home() {
           <p className="text-sm font-medium uppercase tracking-wide text-sky-100">
             Ride earnings tracker
           </p>
-          <h1 className="mt-2 text-3xl font-bold">Daily Log</h1>
+          <h1 className="mt-2 text-3xl font-bold">Target</h1>
           <p className="mt-2 max-w-2xl text-sm text-sky-50">
             Track kilometers, ride sources, and daily totals in one place.
           </p>
