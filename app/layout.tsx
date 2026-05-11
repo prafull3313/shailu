@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import ServiceWorkerRegistration from "./service-worker-registration";
 import "./globals.css";
 
+const appBasePath = process.env.NODE_ENV === "production" ? "/shailu" : "";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -16,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Daily Log",
   description: "Track daily kilometers and ride payments.",
-  manifest: "/manifest.webmanifest",
+  manifest: `${appBasePath}/manifest.webmanifest`,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -24,10 +26,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: `${appBasePath}/icons/icon-192.png`, sizes: "192x192", type: "image/png" },
+      { url: `${appBasePath}/icons/icon-512.png`, sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+    apple: [{ url: `${appBasePath}/icons/apple-touch-icon.png`, sizes: "180x180" }],
   },
 };
 

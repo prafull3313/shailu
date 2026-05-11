@@ -1,5 +1,7 @@
 const CACHE_NAME = "daily-log-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest"];
+const BASE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+const withBasePath = (path) => `${BASE_PATH}${path}`;
+const APP_SHELL = [withBasePath("/"), withBasePath("/manifest.webmanifest")];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -39,10 +41,10 @@ self.addEventListener("fetch", (event) => {
       fetch(event.request)
         .then((response) => {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/", responseClone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(withBasePath("/"), responseClone));
           return response;
         })
-        .catch(() => caches.match("/"))
+        .catch(() => caches.match(withBasePath("/")))
     );
     return;
   }

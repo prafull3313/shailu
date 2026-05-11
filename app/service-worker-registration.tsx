@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+const serviceWorkerPath = process.env.NODE_ENV === "production" ? "/shailu/sw.js" : "/sw.js";
+
 const ServiceWorkerRegistration = () => {
   useEffect(() => {
     if (!("serviceWorker" in navigator) || process.env.NODE_ENV !== "production") {
@@ -10,7 +12,7 @@ const ServiceWorkerRegistration = () => {
 
     const registerServiceWorker = async () => {
       try {
-        await navigator.serviceWorker.register("/sw.js");
+        await navigator.serviceWorker.register(serviceWorkerPath);
       } catch (error) {
         console.error("Service worker registration failed:", error);
       }
