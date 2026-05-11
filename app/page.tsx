@@ -3,6 +3,14 @@
 import { useState, useEffect } from 'react';
 import { getDaysWithEntries, saveDay, type DayData } from '../lib/days';
 
+const rideOrderFromSuggestions = [
+  'Umesh Sir',
+  'Motherboard',
+  'Kuldeep Padade',
+  'Uber',
+  'Ola'
+];
+
 export default function Home() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [startKM, setStartKM] = useState('');
@@ -191,11 +199,17 @@ export default function Home() {
             />
             <input
               type="text"
+              list="ride-order-from-suggestions"
               placeholder="Ride/order from"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               className="w-full rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
+            <datalist id="ride-order-from-suggestions">
+              {rideOrderFromSuggestions.map((suggestion) => (
+                <option key={suggestion} value={suggestion} />
+              ))}
+            </datalist>
             <button
               onClick={addEntry}
               className="rounded-md bg-sky-600 px-5 py-2 font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
