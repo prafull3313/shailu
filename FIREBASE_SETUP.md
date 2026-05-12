@@ -12,7 +12,7 @@
 1. In your Firebase project console, go to "Firestore Database".
 2. Click "Create database".
 3. Choose a database mode and region.
-4. For this app, data is stored in the `days` collection.
+4. For this app, entries are stored in the `days` collection and reusable app values are stored in the `metadata` collection.
 
 ## 3. Get Firebase Configuration
 
@@ -39,13 +39,16 @@ The app reads these values in `lib/firebase.ts`, following the same pattern as A
 
 ## 5. Security Rules
 
-This app signs in anonymously before reading or writing Firestore. In Firebase Console, open **Firestore Database > Rules** and allow authenticated access to the `days` collection:
+This app signs in anonymously before reading or writing Firestore. In Firebase Console, open **Firestore Database > Rules** and allow authenticated access to the `days` and `metadata` collections:
 
 ```js
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /days/{dayId} {
+      allow read, write: if request.auth != null;
+    }
+    match /metadata/{metadataId} {
       allow read, write: if request.auth != null;
     }
   }

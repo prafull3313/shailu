@@ -1,15 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getDaysWithEntries, saveDay, type DayData } from '../lib/days';
+import {
+  deleteDay,
+  getDaysWithEntries,
+  saveDay,
+  type DayData,
+  type Entry
+} from '../lib/days';
+import {
+  getRideOrderFromSuggestions,
+  saveRideOrderFromSuggestion
+} from '../lib/metadata';
 
-const rideOrderFromSuggestions = [
-  'Umesh Sir',
-  'Motherboard',
-  'Kuldeep Padade',
-  'Uber',
-  'Ola'
-];
+type EditingEntry = {
+  dayId: string;
+  date: string;
+  entryIndex: number;
+};
+
+const sortDaysByDateDesc = (days: DayData[]) =>
+  [...days].sort((a, b) => b.date.localeCompare(a.date));
 
 export default function Home() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -18,14 +29,29 @@ export default function Home() {
   const [money, setMoney] = useState('');
   const [from, setFrom] = useState('');
   const [allData, setAllData] = useState<DayData[]>([]);
+  const [rideOrderFromSuggestions, setRideOrderFromSuggestions] = useState<string[]>([]);
+  const [editingEntry, setEditingEntry] = useState<EditingEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  const setDayFields = (selectedDate: string, days = allData) => {
+    const selectedDay = days.find((day) => day.date === selectedDate);
+
+    setStartKM(selectedDay ? String(selectedDay.startKM) : '');
+    setEndKM(selectedDay ? String(selectedDay.endKM) : '');
+  };
+
   const loadData = async () => {
     try {
-      const days = await getDaysWithEntries();
+      setLoading(true);
+      const [days, suggestions] = await Promise.all([
+        getDaysWithEntries(),
+        getRideOrderFromSuggestions()
+      ]);
       setAllData(days);
+      setRideOrderFromSuggestions(suggestions);
+      setDayFields(date, days);
       setErrorMessage('');
     } catch (error) {
       console.error('Error loading data:', error);
@@ -40,31 +66,137 @@ export default function Home() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const addEntry = async () => {
+  const saveSuggestionIfNew = async (fromValue: string) => {
+    const isNewSuggestion = !rideOrderFromSuggestions.some(
+      (suggestion) => suggestion.toLowerCase() === fromValue.toLowerCase()
+    );
+
+    if (!isNewSuggestion) {
+      return;
+    }
+
+    await saveRideOrderFromSuggestion(fromValue);
+    setRideOrderFromSuggestions((suggestions) =>
+      [...suggestions, fromValue].sort((a, b) => a.localeCompare(b))
+    );
+  };
+
+  const resetEntryForm = () => {
+    setMoney('');
+    setFrom('');
+    setEditingEntry(null);
+  };
+
+  const selectDate = (selectedDate: string) => {
+    setDate(selectedDate);
+    setDayFields(selectedDate);
+  };
+
+  const saveEntry = async () => {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (money && from && startKM && endKM) {
-      const newEntry = { money: parseFloat(money), from };
+    const fromValue = from.trim();
+
+    if (money && fromValue && startKM && endKM) {
+      const nextEntry: Entry = { money: parseFloat(money), from: fromValue };
       const existingDay = allData.find(d => d.date === date);
-      const updatedEntries = [...(existingDay?.entries || []), newEntry];
-      const updatedDay = {
+      const nextDayBase = {
         date,
         startKM: parseFloat(startKM),
-        endKM: parseFloat(endKM),
-        entries: updatedEntries,
+        endKM: parseFloat(endKM)
       };
 
       try {
+        if (editingEntry) {
+          const originalDay = allData.find((day) => day.id === editingEntry.dayId);
+
+          if (!originalDay) {
+            setErrorMessage('Could not find the record to update.');
+            return;
+          }
+
+          if (editingEntry.date === date) {
+            const updatedDay = {
+              ...nextDayBase,
+              entries: originalDay.entries.map((entry, entryIndex) =>
+                entryIndex === editingEntry.entryIndex ? nextEntry : entry
+              )
+            };
+            const result = await saveDay(updatedDay, originalDay.id);
+            const savedDay = { id: result.id, ...updatedDay };
+
+            setAllData((days) =>
+              sortDaysByDateDesc(
+                days.map((day) => (day.id === originalDay.id ? savedDay : day))
+              )
+            );
+          } else {
+            const remainingEntries = originalDay.entries.filter(
+              (_, entryIndex) => entryIndex !== editingEntry.entryIndex
+            );
+            const targetDay = allData.find((day) => day.date === date);
+            const targetUpdatedDay = {
+              ...nextDayBase,
+              entries: [...(targetDay?.entries || []), nextEntry]
+            };
+            const targetResult = await saveDay(targetUpdatedDay, targetDay?.id);
+            const savedTargetDay = { id: targetResult.id, ...targetUpdatedDay };
+
+            if (remainingEntries.length > 0) {
+              await saveDay(
+                {
+                  date: originalDay.date,
+                  startKM: originalDay.startKM,
+                  endKM: originalDay.endKM,
+                  entries: remainingEntries
+                },
+                originalDay.id
+              );
+            } else {
+              await deleteDay(originalDay.id);
+            }
+
+            setAllData((days) => {
+              const withoutOriginal = remainingEntries.length > 0
+                ? days.map((day) =>
+                    day.id === originalDay.id
+                      ? { ...originalDay, entries: remainingEntries }
+                      : day
+                  )
+                : days.filter((day) => day.id !== originalDay.id);
+              const withTarget = targetDay
+                ? withoutOriginal.map((day) =>
+                    day.id === targetDay.id ? savedTargetDay : day
+                  )
+                : [savedTargetDay, ...withoutOriginal];
+
+              return sortDaysByDateDesc(withTarget);
+            });
+          }
+
+          await saveSuggestionIfNew(fromValue);
+          resetEntryForm();
+          setSuccessMessage('Record updated successfully.');
+          return;
+        }
+
+        const updatedDay = {
+          ...nextDayBase,
+          entries: [...(existingDay?.entries || []), nextEntry],
+        };
         const result = await saveDay(updatedDay, existingDay?.id);
+        await saveSuggestionIfNew(fromValue);
+
         const savedDay = { id: result.id, ...updatedDay };
         const updatedData = existingDay
           ? allData.map(d => d.date === date ? savedDay : d)
           : [savedDay, ...allData];
 
-        setAllData(updatedData.sort((a, b) => b.date.localeCompare(a.date)));
+        setAllData(sortDaysByDateDesc(updatedData));
         setMoney('');
         setFrom('');
         setSuccessMessage(result.message);
@@ -74,6 +206,77 @@ export default function Home() {
           error instanceof Error ? error.message : 'Failed to save the entry.'
         );
       }
+    }
+  };
+
+  const editRecord = (day: DayData, entryIndex: number) => {
+    const entry = day.entries[entryIndex];
+
+    if (!entry) {
+      return;
+    }
+
+    setDate(day.date);
+    setStartKM(String(day.startKM));
+    setEndKM(String(day.endKM));
+    setMoney(String(entry.money));
+    setFrom(entry.from);
+    setEditingEntry({
+      dayId: day.id,
+      date: day.date,
+      entryIndex
+    });
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
+  const deleteRecord = async (day: DayData, entryIndex: number) => {
+    const shouldDelete = window.confirm('Delete this record?');
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const remainingEntries = day.entries.filter((_, index) => index !== entryIndex);
+
+    try {
+      if (remainingEntries.length > 0) {
+        const updatedDay = {
+          date: day.date,
+          startKM: day.startKM,
+          endKM: day.endKM,
+          entries: remainingEntries
+        };
+
+        await saveDay(updatedDay, day.id);
+        setAllData((days) =>
+          sortDaysByDateDesc(
+            days.map((currentDay) =>
+              currentDay.id === day.id ? { id: day.id, ...updatedDay } : currentDay
+            )
+          )
+        );
+      } else {
+        await deleteDay(day.id);
+        setAllData((days) => days.filter((currentDay) => currentDay.id !== day.id));
+      }
+
+      if (
+        editingEntry?.dayId === day.id &&
+        editingEntry.entryIndex === entryIndex
+      ) {
+        resetEntryForm();
+      }
+
+      setSuccessMessage('Record deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Failed to delete the record.'
+      );
     }
   };
 
@@ -126,10 +329,20 @@ export default function Home() {
           <p className="text-sm font-medium uppercase tracking-wide text-sky-100">
             Ride earnings tracker
           </p>
-          <h1 className="mt-2 text-3xl font-bold">Target</h1>
-          <p className="mt-2 max-w-2xl text-sm text-sky-50">
-            Track kilometers, ride sources, and daily totals in one place.
-          </p>
+          <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Target</h1>
+              <p className="mt-2 max-w-2xl text-sm text-sky-50">
+                Track kilometers, ride sources, and daily totals in one place.
+              </p>
+            </div>
+            <button
+              onClick={() => void loadData()}
+              className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-white/60"
+            >
+              Reload
+            </button>
+          </div>
         </header>
 
         {errorMessage ? (
@@ -150,7 +363,7 @@ export default function Home() {
               <input
                 type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(e) => selectDate(e.target.value)}
                 className="w-full rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-slate-900 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
               />
             </label>
@@ -182,14 +395,48 @@ export default function Home() {
         </section>
 
         <section className="mb-6 rounded-lg border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-slate-900">Day Kilometers</h2>
+            <p className="text-sm text-sky-700">Starting and ending KM are tracked once per day.</p>
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border border-sky-100">
+            <table className="min-w-[560px] w-full border-collapse bg-white text-sm">
+              <thead>
+                <tr className="bg-sky-100 text-sky-950">
+                  <th className="px-3 py-3 text-left font-semibold">Date</th>
+                  <th className="px-3 py-3 text-left font-semibold">Starting KM</th>
+                  <th className="px-3 py-3 text-left font-semibold">Ending KM</th>
+                  <th className="px-3 py-3 text-left font-semibold">Total KM</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-sky-100">
+                {allData.map((day) => (
+                  <tr className="odd:bg-white even:bg-sky-50/60" key={day.id}>
+                    <td className="px-3 py-3">{formatDate(day.date)}</td>
+                    <td className="px-3 py-3">{day.startKM}</td>
+                    <td className="px-3 py-3">{day.endKM}</td>
+                    <td className="px-3 py-3 font-semibold text-slate-900">
+                      {Math.max(day.endKM - day.startKM, 0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-lg border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Entries</h2>
-              <p className="text-sm text-sky-700">Add each ride or order payment.</p>
+              <p className="text-sm text-sky-700">
+                {editingEntry ? 'Update the selected ride or order payment.' : 'Add each ride or order payment.'}
+              </p>
             </div>
           </div>
 
-          <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto]">
             <input
               type="number"
               placeholder="Money received"
@@ -211,22 +458,29 @@ export default function Home() {
               ))}
             </datalist>
             <button
-              onClick={addEntry}
+              onClick={saveEntry}
               className="rounded-md bg-sky-600 px-5 py-2 font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
             >
-              Add
+              {editingEntry ? 'Update' : 'Add'}
             </button>
+            {editingEntry ? (
+              <button
+                onClick={resetEntryForm}
+                className="rounded-md border border-sky-200 bg-white px-5 py-2 font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              >
+                Cancel
+              </button>
+            ) : null}
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-sky-100">
-            <table className="min-w-[760px] w-full border-collapse bg-white text-sm">
+            <table className="min-w-[720px] w-full border-collapse bg-white text-sm">
               <thead>
                 <tr className="bg-sky-100 text-sky-950">
                   <th className="px-3 py-3 text-left font-semibold">Date</th>
-                  <th className="px-3 py-3 text-left font-semibold">Start KM</th>
-                  <th className="px-3 py-3 text-left font-semibold">End KM</th>
                   <th className="px-3 py-3 text-left font-semibold">Money Received</th>
                   <th className="px-3 py-3 text-left font-semibold">Ride/Order From</th>
+                  <th className="px-3 py-3 text-left font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sky-100">
@@ -234,10 +488,24 @@ export default function Home() {
                   day.entries.map((entry, entryIndex) => (
                     <tr className="odd:bg-white even:bg-sky-50/60" key={`${day.date}-${entryIndex}`}>
                       <td className="px-3 py-3">{formatDate(day.date)}</td>
-                      <td className="px-3 py-3">{day.startKM}</td>
-                      <td className="px-3 py-3">{day.endKM}</td>
                       <td className="px-3 py-3 font-semibold text-emerald-700">Rs.{entry.money}</td>
                       <td className="px-3 py-3">{entry.from}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => editRecord(day, entryIndex)}
+                            className="rounded-md border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteRecord(day, entryIndex)}
+                            className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-200"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}

@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDocs,
   orderBy,
@@ -92,6 +93,17 @@ export const saveDay = async (
       id: dayDoc.id,
       message: 'Entry saved successfully.'
     };
+  } catch (error) {
+    throw getReadableFirestoreError(error);
+  }
+};
+
+export const deleteDay = async (dayId: string) => {
+  await ensureAnonymousAuth();
+
+  try {
+    const db = getFirestoreDb();
+    await deleteDoc(doc(db, 'days', dayId));
   } catch (error) {
     throw getReadableFirestoreError(error);
   }
