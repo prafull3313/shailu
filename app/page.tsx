@@ -32,6 +32,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
 
 
@@ -43,7 +44,7 @@ export default function Home() {
         getRideOrderFromSuggestions()
       ]);
       setAllData(days);
-      setRideOrderFromSuggestions(suggestions);
+      setRideOrderFromSuggestions(suggestions.sort((a, b) => a.localeCompare(b)));
       setErrorMessage('');
     } catch (error) {
       console.error('Error loading data:', error);
@@ -295,6 +296,35 @@ export default function Home() {
   const daySums = calculateDaySums();
   const monthSums = calculateMonthSums();
 
+  const totalPages = allData.length;
+  const currentDay = allData[currentPageIndex];
+  const currentDayEntries = currentDay ? currentDay.entries : [];
+
+  const handlePreviousPage = () => {
+    if (currentPageIndex > 0) {
+      setCurrentPageIndex(currentPageIndex - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPageIndex < totalPages - 1) {
+      setCurrentPageIndex(currentPageIndex + 1);
+    }
+  };
+
+  const goToPage = (index: number) => {
+    if (index >= 0 && index < totalPages) {
+      setCurrentPageIndex(index);
+    }
+  };
+
+  // Reset pagination when data changes
+  useEffect(() => {
+    if (currentPageIndex >= allData.length && allData.length > 0) {
+      setCurrentPageIndex(allData.length - 1);
+    }
+  }, [allData, currentPageIndex]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-sky-50 px-4 py-8 text-slate-900">
@@ -402,45 +432,79 @@ export default function Home() {
             ) : null}
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-sky-100">
-            <table className="min-w-[720px] w-full border-collapse bg-white text-sm">
-              <thead>
-                <tr className="bg-sky-100 text-sky-950">
-                  <th className="px-3 py-3 text-left font-semibold">Date</th>
-                  <th className="px-3 py-3 text-left font-semibold">Money Received</th>
-                  <th className="px-3 py-3 text-left font-semibold">Ride/Order From</th>
-                  <th className="px-3 py-3 text-left font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sky-100">
-                {allData.flatMap((day) =>
-                  day.entries.map((entry, entryIndex) => (
-                    <tr className="odd:bg-white even:bg-sky-50/60" key={`${day.date}-${entryIndex}`}>
-                      <td className="px-3 py-3">{formatDate(day.date)}</td>
-                      <td className="px-3 py-3 font-semibold text-emerald-700">Rs.{entry.money}</td>
-                      <td className="px-3 py-3">{entry.from}</td>
-                      <td className="px-3 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => editRecord(day, entryIndex)}
-                            className="rounded-md border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteRecord(day, entryIndex)}
-                            className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-200"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
+          {totalPages === 0 ? (
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">No entries found.</p>
+          ) : (
+            <>
+              <div className="mb-4 flex items-center justify-between rounded-md bg-sky-50 px-4 py-3">
+                <div className="text-sm font-medium text-slate-700">
+                  {currentDay ? (
+                    <span>
+                      Showing entries for <strong>{formatDate(currentDay.date)}</strong>
+                    </span>
+                  ) : null}
+                </div>
+                <div className="text-sm text-slate-600">
+                  Page {currentPageIndex + 1} of {totalPages}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-sky-100">
+                <table className="min-w-[720px] w-full border-collapse bg-white text-sm">
+                  <thead>
+                    <tr className="bg-sky-100 text-sky-950">
+                      <th className="px-3 py-3 text-left font-semibold">Money Received</th>
+                      <th className="px-3 py-3 text-left font-semibold">Ride/Order From</th>
+                      <th className="px-3 py-3 text-left font-semibold">Actions</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-sky-100">
+                    {currentDayEntries.map((entry, entryIndex) => (
+                      <tr className="odd:bg-white even:bg-sky-50/60" key={`${currentDay?.date}-${entryIndex}`}>
+                        <td className="px-3 py-3 font-semibold text-emerald-700">Rs.{entry.money}</td>
+                        <td className="px-3 py-3">{entry.from}</td>
+                        <td className="px-3 py-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => currentDay && editRecord(currentDay, entryIndex)}
+                              className="rounded-md border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => currentDay && deleteRecord(currentDay, entryIndex)}
+                              className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-200"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-2">
+                  <button
+                    onClick={handlePreviousPage}
+                    disabled={currentPageIndex === 0}
+                    className="rounded-md border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  >
+                    ← Previous
+                  </button>
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPageIndex === totalPages - 1}
+                    className="rounded-md border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">
