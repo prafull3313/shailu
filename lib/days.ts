@@ -13,6 +13,7 @@ import { ensureAnonymousAuth, getFirestoreDb } from './firebase';
 export type Entry = {
   money: number;
   from: string;
+  paymentReceived: boolean;
 };
 
 export type DayData = {
@@ -44,7 +45,8 @@ const normalizeDay = (id: string, day: Partial<FirestoreDay>): DayData => ({
   entries: Array.isArray(day.entries)
     ? day.entries.map((entry) => ({
         money: Number(entry.money || 0),
-        from: entry.from || ''
+        from: entry.from || '',
+        paymentReceived: Boolean(entry.paymentReceived)
       }))
     : []
 });

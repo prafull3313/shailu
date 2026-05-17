@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import {
   deleteDay,
@@ -26,6 +27,7 @@ export default function Home() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [money, setMoney] = useState('');
   const [from, setFrom] = useState('');
+  const [paymentReceived, setPaymentReceived] = useState(false);
   const [allData, setAllData] = useState<DayData[]>([]);
   const [rideOrderFromSuggestions, setRideOrderFromSuggestions] = useState<string[]>([]);
   const [editingEntry, setEditingEntry] = useState<EditingEntry | null>(null);
@@ -80,6 +82,7 @@ export default function Home() {
   const resetEntryForm = () => {
     setMoney('');
     setFrom('');
+    setPaymentReceived(false);
     setEditingEntry(null);
   };
 
@@ -94,7 +97,11 @@ export default function Home() {
     const fromValue = from.trim();
 
     if (money && fromValue) {
-      const nextEntry: Entry = { money: parseFloat(money), from: fromValue };
+      const nextEntry: Entry = {
+        money: parseFloat(money),
+        from: fromValue,
+        paymentReceived
+      };
       const existingDay = allData.find(d => d.date === date);
       const nextDayBase = {
         date
@@ -187,6 +194,7 @@ export default function Home() {
         setAllData(sortDaysByDateDesc(updatedData));
         setMoney('');
         setFrom('');
+        setPaymentReceived(false);
         setSuccessMessage(result.message);
       } catch (error) {
         console.error('Error saving data:', error);
@@ -207,6 +215,7 @@ export default function Home() {
     setDate(day.date);
     setMoney(String(entry.money));
     setFrom(entry.from);
+    setPaymentReceived(entry.paymentReceived);
     setEditingEntry({
       dayId: day.id,
       date: day.date,
@@ -349,12 +358,20 @@ export default function Home() {
                 Track kilometers, ride sources, and daily totals in one place.
               </p>
             </div>
-            <button
-              onClick={() => void loadData()}
-              className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-white/60"
-            >
-              Reload
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link
+                href="/payments"
+                className="rounded-md bg-sky-900 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-sky-950 focus:outline-none focus:ring-2 focus:ring-white/60"
+              >
+                Payments
+              </Link>
+              <button
+                onClick={() => void loadData()}
+                className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-white/60"
+              >
+                Reload
+              </button>
+            </div>
           </div>
         </header>
 
@@ -395,10 +412,10 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto]">
+          <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto_auto]">
             <input
               type="number"
-              placeholder="Money received"
+              placeholder="How much money?"
               value={money}
               onChange={(e) => setMoney(e.target.value)}
               className="w-full rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
@@ -416,6 +433,15 @@ export default function Home() {
                 <option key={suggestion} value={suggestion} />
               ))}
             </datalist>
+            <label className="flex min-h-10 items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                checked={paymentReceived}
+                onChange={(e) => setPaymentReceived(e.target.checked)}
+                className="h-4 w-4 accent-sky-600"
+              />
+              Payment received
+            </label>
             <button
               onClick={saveEntry}
               className="rounded-md bg-sky-600 px-5 py-2 font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
@@ -453,8 +479,9 @@ export default function Home() {
                 <table className="min-w-[720px] w-full border-collapse bg-white text-sm">
                   <thead>
                     <tr className="bg-sky-100 text-sky-950">
-                      <th className="px-3 py-3 text-left font-semibold">Money Received</th>
+                      <th className="px-3 py-3 text-left font-semibold">How much money?</th>
                       <th className="px-3 py-3 text-left font-semibold">Ride/Order From</th>
+                      <th className="px-3 py-3 text-left font-semibold">Payment</th>
                       <th className="px-3 py-3 text-left font-semibold">Actions</th>
                     </tr>
                   </thead>
@@ -463,6 +490,17 @@ export default function Home() {
                       <tr className="odd:bg-white even:bg-sky-50/60" key={`${currentDay?.date}-${entryIndex}`}>
                         <td className="px-3 py-3 font-semibold text-emerald-700">Rs.{entry.money}</td>
                         <td className="px-3 py-3">{entry.from}</td>
+                        <td className="px-3 py-3">
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              entry.paymentReceived
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {entry.paymentReceived ? 'Received' : 'Not received'}
+                          </span>
+                        </td>
                         <td className="px-3 py-3">
                           <div className="flex gap-2">
                             <button
