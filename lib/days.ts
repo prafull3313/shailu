@@ -18,8 +18,6 @@ export type Entry = {
 export type DayData = {
   id: string;
   date: string;
-  startKM: number;
-  endKM: number;
   entries: Entry[];
 };
 
@@ -43,8 +41,6 @@ const getReadableFirestoreError = (error: unknown) => {
 const normalizeDay = (id: string, day: Partial<FirestoreDay>): DayData => ({
   id,
   date: day.date || '',
-  startKM: Number(day.startKM || 0),
-  endKM: Number(day.endKM || 0),
   entries: Array.isArray(day.entries)
     ? day.entries.map((entry) => ({
         money: Number(entry.money || 0),

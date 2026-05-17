@@ -24,8 +24,6 @@ const sortDaysByDateDesc = (days: DayData[]) =>
 
 export default function Home() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startKM, setStartKM] = useState('');
-  const [endKM, setEndKM] = useState('');
   const [money, setMoney] = useState('');
   const [from, setFrom] = useState('');
   const [allData, setAllData] = useState<DayData[]>([]);
@@ -35,12 +33,7 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const setDayFields = (selectedDate: string, days = allData) => {
-    const selectedDay = days.find((day) => day.date === selectedDate);
 
-    setStartKM(selectedDay ? String(selectedDay.startKM) : '');
-    setEndKM(selectedDay ? String(selectedDay.endKM) : '');
-  };
 
   const loadData = async () => {
     try {
@@ -51,7 +44,6 @@ export default function Home() {
       ]);
       setAllData(days);
       setRideOrderFromSuggestions(suggestions);
-      setDayFields(date, days);
       setErrorMessage('');
     } catch (error) {
       console.error('Error loading data:', error);
@@ -92,7 +84,6 @@ export default function Home() {
 
   const selectDate = (selectedDate: string) => {
     setDate(selectedDate);
-    setDayFields(selectedDate);
   };
 
   const saveEntry = async () => {
@@ -101,13 +92,11 @@ export default function Home() {
 
     const fromValue = from.trim();
 
-    if (money && fromValue && startKM && endKM) {
+    if (money && fromValue) {
       const nextEntry: Entry = { money: parseFloat(money), from: fromValue };
       const existingDay = allData.find(d => d.date === date);
       const nextDayBase = {
-        date,
-        startKM: parseFloat(startKM),
-        endKM: parseFloat(endKM)
+        date
       };
 
       try {
@@ -121,7 +110,7 @@ export default function Home() {
 
           if (editingEntry.date === date) {
             const updatedDay = {
-              ...nextDayBase,
+              date,
               entries: originalDay.entries.map((entry, entryIndex) =>
                 entryIndex === editingEntry.entryIndex ? nextEntry : entry
               )
@@ -140,7 +129,7 @@ export default function Home() {
             );
             const targetDay = allData.find((day) => day.date === date);
             const targetUpdatedDay = {
-              ...nextDayBase,
+              date,
               entries: [...(targetDay?.entries || []), nextEntry]
             };
             const targetResult = await saveDay(targetUpdatedDay, targetDay?.id);
@@ -150,8 +139,6 @@ export default function Home() {
               await saveDay(
                 {
                   date: originalDay.date,
-                  startKM: originalDay.startKM,
-                  endKM: originalDay.endKM,
                   entries: remainingEntries
                 },
                 originalDay.id
@@ -217,8 +204,6 @@ export default function Home() {
     }
 
     setDate(day.date);
-    setStartKM(String(day.startKM));
-    setEndKM(String(day.endKM));
     setMoney(String(entry.money));
     setFrom(entry.from);
     setEditingEntry({
@@ -246,8 +231,6 @@ export default function Home() {
       if (remainingEntries.length > 0) {
         const updatedDay = {
           date: day.date,
-          startKM: day.startKM,
-          endKM: day.endKM,
           entries: remainingEntries
         };
 
@@ -367,64 +350,10 @@ export default function Home() {
                 className="w-full rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-slate-900 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
               />
             </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">
-                Starting KM
-              </span>
-              <input
-                type="number"
-                value={startKM}
-                onChange={(e) => setStartKM(e.target.value)}
-                className="w-full rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-slate-900 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">
-                Ending KM
-              </span>
-              <input
-                type="number"
-                value={endKM}
-                onChange={(e) => setEndKM(e.target.value)}
-                className="w-full rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-slate-900 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
           </div>
         </section>
 
-        <section className="mb-6 rounded-lg border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-slate-900">Day Kilometers</h2>
-            <p className="text-sm text-sky-700">Starting and ending KM are tracked once per day.</p>
-          </div>
 
-          <div className="overflow-x-auto rounded-lg border border-sky-100">
-            <table className="min-w-[560px] w-full border-collapse bg-white text-sm">
-              <thead>
-                <tr className="bg-sky-100 text-sky-950">
-                  <th className="px-3 py-3 text-left font-semibold">Date</th>
-                  <th className="px-3 py-3 text-left font-semibold">Starting KM</th>
-                  <th className="px-3 py-3 text-left font-semibold">Ending KM</th>
-                  <th className="px-3 py-3 text-left font-semibold">Total KM</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sky-100">
-                {allData.map((day) => (
-                  <tr className="odd:bg-white even:bg-sky-50/60" key={day.id}>
-                    <td className="px-3 py-3">{formatDate(day.date)}</td>
-                    <td className="px-3 py-3">{day.startKM}</td>
-                    <td className="px-3 py-3">{day.endKM}</td>
-                    <td className="px-3 py-3 font-semibold text-slate-900">
-                      {Math.max(day.endKM - day.startKM, 0)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
 
         <section className="mb-6 rounded-lg border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
